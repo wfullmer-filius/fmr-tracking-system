@@ -150,19 +150,21 @@ export default function ColumnPresetManager({
       // Close edit dialog immediately
       handleEditDialogChange(false);
       
-      // Close manage dialog after successful update
-      setManageDialogOpen(false);
-      
-      // Invalidate in background (don't await)
-      queryClient.invalidateQueries({ 
-        queryKey: ["column-presets"],
-        refetchType: 'active'
-      });
-      
       toast({
         title: "Preset Updated",
         description: "Column preset has been updated successfully.",
       });
+      
+      // Close manage dialog, then invalidate after dialogs are fully closed
+      setTimeout(() => {
+        setManageDialogOpen(false);
+        setTimeout(() => {
+          queryClient.invalidateQueries({ 
+            queryKey: ["column-presets"],
+            refetchType: 'active'
+          });
+        }, 300);
+      }, 150);
     },
     onError: (error) => {
       console.error("[ColumnPresets] Error updating preset:", error);
@@ -184,21 +186,21 @@ export default function ColumnPresetManager({
     onSuccess: () => {
       console.log("[ColumnPresets] Preset deleted successfully");
       
-      // Invalidate in background (don't await)
-      queryClient.invalidateQueries({ 
-        queryKey: ["column-presets"],
-        refetchType: 'active'
-      });
-      
-      // Close manage dialog after a brief delay to let AlertDialog close first
-      setTimeout(() => {
-        setManageDialogOpen(false);
-      }, 150);
-      
       toast({
         title: "Preset Deleted",
         description: "Column preset has been deleted successfully.",
       });
+      
+      // Close dialogs first, then invalidate after they're fully closed
+      setTimeout(() => {
+        setManageDialogOpen(false);
+        setTimeout(() => {
+          queryClient.invalidateQueries({ 
+            queryKey: ["column-presets"],
+            refetchType: 'active'
+          });
+        }, 300);
+      }, 150);
     },
     onError: (error) => {
       console.error("[ColumnPresets] Error deleting preset:", error);
