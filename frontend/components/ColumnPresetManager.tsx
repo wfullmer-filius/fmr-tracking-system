@@ -184,14 +184,16 @@ export default function ColumnPresetManager({
     onSuccess: () => {
       console.log("[ColumnPresets] Preset deleted successfully");
       
-      // Close manage dialog after successful delete
-      setManageDialogOpen(false);
-      
       // Invalidate in background (don't await)
       queryClient.invalidateQueries({ 
         queryKey: ["column-presets"],
         refetchType: 'active'
       });
+      
+      // Close manage dialog after a brief delay to let AlertDialog close first
+      setTimeout(() => {
+        setManageDialogOpen(false);
+      }, 150);
       
       toast({
         title: "Preset Deleted",
