@@ -4,9 +4,14 @@ FROM golang:1.21-alpine AS builder
 # Install dependencies
 RUN apk add --no-cache curl bash ca-certificates git
 
-# Install Encore CLI
-RUN curl -L https://encore.dev/install.sh | sh
+# Set PATH for Encore before installing
 ENV PATH="/root/.encore/bin:$PATH"
+
+# Install Encore CLI with bash (the script needs it)
+RUN curl -L https://encore.dev/install.sh | bash
+
+# Verify Encore installation
+RUN encore version
 
 # Set working directory
 WORKDIR /workspace
