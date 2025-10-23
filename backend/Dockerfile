@@ -1,12 +1,12 @@
-# Build stage - Use Debian-based image instead of Alpine
-FROM golang:1.21-bookworm AS builder
+# Build stage - Use Alpine instead of Debian
+FROM golang:1.21-alpine AS builder
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
+# Install dependencies (Alpine uses apk instead of apt-get)
+RUN apk add --no-cache \
     curl \
     bash \
     ca-certificates \
-    git \
+    git
     && rm -rf /var/lib/apt/lists/*
 
 # Set PATH for Encore before installing
@@ -27,13 +27,13 @@ COPY . .
 # Build the Encore application
 RUN encore build --output ./out
 
-# Runtime stage - Use Debian slim for better compatibility
-FROM debian:bookworm-slim
+# Runtime stage - Use Alpine slim
+FROM alpine:latest
 
 # Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     ca-certificates \
-    tzdata \
+    tzdata
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
