@@ -7,7 +7,6 @@ RUN apk add --no-cache \
     bash \
     ca-certificates \
     git
-    && rm -rf /var/lib/apt/lists/*
 
 # Set PATH for Encore before installing
 ENV PATH="/root/.encore/bin:$PATH"
@@ -34,7 +33,6 @@ FROM alpine:latest
 RUN apk add --no-cache \
     ca-certificates \
     tzdata
-    && rm -rf /var/lib/apt/lists/*
 
 # Create app user
 RUN groupadd -g 1000 encore && \
