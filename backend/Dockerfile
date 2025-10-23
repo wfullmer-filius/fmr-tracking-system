@@ -1,13 +1,18 @@
-# Build stage
-FROM golang:1.21-alpine AS builder
+# Build stage - Use Debian-based image instead of Alpine
+FROM golang:1.21-bookworm AS builder
 
 # Install dependencies
-RUN apk add --no-cache curl bash ca-certificates git
+RUN apt-get update && apt-get install -y \
+    curl \
+    bash \
+    ca-certificates \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set PATH for Encore before installing
 ENV PATH="/root/.encore/bin:$PATH"
 
-# Install Encore CLI with bash (the script needs it)
+# Install Encore CLI
 RUN curl -L https://encore.dev/install.sh | bash
 
 # Verify Encore installation
@@ -22,15 +27,18 @@ COPY . .
 # Build the Encore application
 RUN encore build --output ./out
 
-# Runtime stage
-FROM alpine:latest
+# Runtime stage - Use Debian slim for better compatibility
+FROM debian:bookworm-slim
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create app user
-RUN addgroup -g 1000 encore && \
-    adduser -D -u 1000 -G encore encore
+RUN groupadd -g 1000 encore && \
+    useradd -r -u 1000 -g encore encore
 
 WORKDIR /app
 
