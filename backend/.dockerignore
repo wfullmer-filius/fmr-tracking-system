@@ -1,0 +1,12 @@
+node_modules
+.git
+.encore
+*.log
+.DS_Store
+dist
+out
+frontend/dist
+frontend/node_modules
+*.md
+.env
+.env.local
