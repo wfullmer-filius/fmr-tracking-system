@@ -1,15 +1,26 @@
-# Build stage - Minimal approach to avoid apt-get issues
+# Build stage
 FROM golang:1.21-alpine AS builder
 
-# Install basic dependencies
+# Install dependencies
 RUN apk add --no-cache curl bash ca-certificates git
 
-# Download pre-built Encore binary directly (skip installer script)
-RUN curl -L -o /usr/local/bin/encore https://d2f391esomvqpi.cloudfront.net/encore-latest/encore-linux-amd64 && \
-    chmod +x /usr/local/bin/encore
+# Set PATH first
+ENV PATH="/root/.encore/bin:$PATH"
+ENV ENCORE_INSTALL="/root/.encore"
 
-# Verify Encore works
-RUN encore version || echo "Encore installed but version check may fail"
+# Create encore directory
+RUN mkdir -p /root/.encore/bin
+
+# Download and install Encore using the official install script
+# The script will handle the download URL correctly
+RUN curl -L https://encore.dev/install.sh > /tmp/install.sh && \
+    chmod +x /tmp/install.sh && \
+    bash /tmp/install.sh
+
+# Verify installation
+RUN ls -la /root/.encore/bin/ && \
+    /root/.encore/bin/encore version || \
+    (echo "Encore binary:" && ls -la /root/.encore/bin/encore && exit 1)
 
 # Set working directory
 WORKDIR /workspace
@@ -18,19 +29,15 @@ WORKDIR /workspace
 COPY . .
 
 # Build the Encore application
-RUN encore build --output ./out || \
-    (echo "Build failed, checking encore..." && \
-     ls -la /usr/local/bin/encore && \
-     file /usr/local/bin/encore && \
-     exit 1)
+RUN /root/.encore/bin/encore build --output ./out
 
 # Runtime stage
 FROM alpine:latest
 
-# Install runtime dependencies and gcompat for glibc compatibility
-RUN apk add --no-cache ca-certificates tzdata gcompat
+# Install runtime dependencies
+RUN apk add --no-cache ca-certificates tzdata gcompat libgcc libstdc++
 
-# Create app user (Alpine commands)
+# Create app user
 RUN addgroup -g 1000 encore && \
     adduser -D -u 1000 -G encore encore
 
