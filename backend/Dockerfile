@@ -1,26 +1,23 @@
-# Build stage
-FROM golang:1.21-alpine AS builder
+# Build stage - Use Debian (glibc) where Encore binary will work
+FROM golang:1.21-bullseye AS builder
 
 # Install dependencies
-RUN apk add --no-cache curl bash ca-certificates git
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    bash \
+    ca-certificates \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set PATH first
 ENV PATH="/root/.encore/bin:$PATH"
 ENV ENCORE_INSTALL="/root/.encore"
 
-# Create encore directory
-RUN mkdir -p /root/.encore/bin
-
-# Download and install Encore using the official install script
-# The script will handle the download URL correctly
-RUN curl -L https://encore.dev/install.sh > /tmp/install.sh && \
-    chmod +x /tmp/install.sh && \
-    bash /tmp/install.sh
+# Install Encore CLI - will work on Debian
+RUN curl -L https://encore.dev/install.sh | bash
 
 # Verify installation
-RUN ls -la /root/.encore/bin/ && \
-    /root/.encore/bin/encore version || \
-    (echo "Encore binary:" && ls -la /root/.encore/bin/encore && exit 1)
+RUN encore version
 
 # Set working directory
 WORKDIR /workspace
@@ -29,17 +26,19 @@ WORKDIR /workspace
 COPY . .
 
 # Build the Encore application
-RUN /root/.encore/bin/encore build --output ./out
+RUN encore build --output ./out
 
-# Runtime stage
-FROM alpine:latest
+# Runtime stage - Also use Debian for runtime compatibility
+FROM debian:bullseye-slim
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata gcompat libgcc libstdc++
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create app user
-RUN addgroup -g 1000 encore && \
-    adduser -D -u 1000 -G encore encore
+RUN groupadd -g 1000 encore && \
+    useradd -r -u 1000 -g encore encore
 
 WORKDIR /app
 
