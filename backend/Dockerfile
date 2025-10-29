@@ -1,6 +1,4 @@
-# ===========================
-# Build Stage
-# ===========================
+# Build stage - Use Debian (glibc) where Encore binary will work
 FROM golang:1.21-bullseye AS builder
 
 # Install dependencies
@@ -11,15 +9,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Set PATH and Encore install location
+# Set PATH first
 ENV PATH="/root/.encore/bin:$PATH"
 ENV ENCORE_INSTALL="/root/.encore"
 
-# 🩵 Workaround for FIPS mode blocking non-approved crypto
-# Disable FIPS temporarily for build (some Go crypto funcs may use MD5 internally)
-ENV OPENSSL_FIPS=0
-
-# Install Encore CLI
+# Install Encore CLI - will work on Debian
 RUN curl -L https://encore.dev/install.sh | bash
 
 # Verify installation
@@ -31,42 +25,36 @@ WORKDIR /workspace
 # Copy the entire backend
 COPY . .
 
-# ✅ Build the Encore app (correct command)
-# This generates a production-ready Docker image definition inside /workspace
-RUN encore build docker
+# Build the Encore application with proper output directory
+# Use --output flag instead of docker subcommand
+RUN encore build --output ./out
 
-# ===========================
-# Runtime Stage
-# ===========================
+# Runtime stage - Also use Debian for runtime compatibility
 FROM debian:bullseye-slim
-
-# Re-enable FIPS if desired for runtime
-# (Uncomment the next line if you need strict FIPS enforcement)
-# ENV OPENSSL_FIPS=1
 
 # Install minimal runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user
+# Create app user
 RUN groupadd -g 1000 encore && \
     useradd -r -u 1000 -g encore encore
 
 WORKDIR /app
 
-# Copy built app from builder (Encore docker build output location)
-COPY --from=builder --chown=encore:encore /workspace/.encore/docker /app/
+# Copy the built binary from builder stage
+COPY --from=builder --chown=encore:encore /workspace/out /app/
 
 # Switch to non-root user
 USER encore
 
-# Expose default Encore port
+# Expose the port Encore runs on
 EXPOSE 4000
 
-# Health check (update binary name if different)
+# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD ["/app/backend", "healthcheck"] || exit 1
 
-# Run the Encore application
+# Run the application
 CMD ["/app/backend"]
