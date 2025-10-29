@@ -1,60 +1,59 @@
-# Build stage - Use Debian (glibc) where Encore binary will work
+# ==============================
+# Build Stage
+# ==============================
 FROM golang:1.21-bullseye AS builder
 
 # Install dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    bash \
-    ca-certificates \
-    git \
+    curl bash ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
-# Set PATH first
-ENV PATH="/root/.encore/bin:$PATH"
+# Install Encore CLI (compatible with Debian)
 ENV ENCORE_INSTALL="/root/.encore"
+ENV PATH="$ENCORE_INSTALL/bin:$PATH"
+RUN curl -fsSL https://encore.dev/install.sh | bash
 
-# Install Encore CLI - will work on Debian
-RUN curl -L https://encore.dev/install.sh | bash
-
-# Verify installation
+# Verify Encore CLI
 RUN encore version
 
 # Set working directory
 WORKDIR /workspace
 
-# Copy the entire backend
+# Copy project files
 COPY . .
 
-# Build the Encore application with proper output directory
-# Use --output flag instead of docker subcommand
-RUN encore build --output ./out
+# Build the Encore application for production
+# The output directory will contain the compiled binary and runtime files
+RUN encore build --production --output ./build
 
-# Runtime stage - Also use Debian for runtime compatibility
+# ==============================
+# Runtime Stage
+# ==============================
 FROM debian:bullseye-slim
 
 # Install minimal runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
+    ca-certificates tzdata \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app user
-RUN groupadd -g 1000 encore && \
-    useradd -r -u 1000 -g encore encore
+# Create a non-root user
+RUN groupadd -r encore && useradd -r -g encore encore
 
 WORKDIR /app
 
-# Copy the built binary from builder stage
-COPY --from=builder --chown=encore:encore /workspace/out /app/
+# Copy the built app from the builder stage
+COPY --from=builder --chown=encore:encore /workspace/build /app
 
 # Switch to non-root user
 USER encore
 
-# Expose the port Encore runs on
+# Expose Encore's default port
 EXPOSE 4000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD ["/app/backend", "healthcheck"] || exit 1
+# Healthcheck - check if port 4000 responds
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:4000/health || exit 1
 
-# Run the application
-CMD ["/app/backend"]
+# Run the Encore binary (Encore names it after your app)
+# Replace "backend" with your actual service name if different.
+CMD ["./backend"]
